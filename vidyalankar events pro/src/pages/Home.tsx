@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, MapPin, Clock } from 'lucide-react';
+import { Calendar, MapPin, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { eventService } from '../services/eventService';
 import { Database } from '../types/supabase';
 
@@ -13,12 +13,112 @@ const stats = [
   { label: 'Downloads', value: '10K+' }
 ];
 
+// Memoized Carousel Controls
+const CarouselControls = memo(({ 
+  currentIndex, 
+  totalSlides, 
+  onPrev, 
+  onNext, 
+  onDotClick 
+}) => (
+  <>
+    {/* Navigation arrows */}
+    <button
+      onClick={onPrev}
+      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white p-2 rounded-full transition-colors z-10"
+      aria-label="Previous slide"
+    >
+      <ChevronLeft size={24} />
+    </button>
+    
+    <button
+      onClick={onNext}
+      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white p-2 rounded-full transition-colors z-10"
+      aria-label="Next slide"
+    >
+      <ChevronRight size={24} />
+    </button>
+    
+    {/* Dot indicators */}
+    <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2 z-10">
+      {Array.from({ length: totalSlides }).map((_, index) => (
+        <button
+          key={index}
+          onClick={() => onDotClick(index)}
+          className={`w-3 h-3 rounded-full transition-colors ${
+            index === currentIndex ? 'bg-white' : 'bg-white bg-opacity-50 hover:bg-opacity-75'
+          }`}
+          aria-label={`Go to slide ${index + 1}`}
+        />
+      ))}
+    </div>
+  </>
+));
+
+const CarouselSlide = memo(({ image, isActive, index }) => (
+  <div
+    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+      isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
+    }`}
+    aria-hidden={!isActive}
+  >
+    {image.type === 'image' ? (
+      <img
+        src={image.url}
+        alt={`Slide ${index + 1}`}
+        className="w-full h-full object-cover"
+        loading={index === 0 ? "eager" : "lazy"}
+      />
+    ) : (
+      <video
+        className="w-full h-full object-cover"
+        autoPlay
+        muted
+        loop
+        playsInline
+      >
+        <source src={image.url} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+    )}
+    <div className="absolute inset-0  mix-blend-multiply"></div>
+  </div>
+));
+
+
+// Main Home component
 export function Home() {
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
+  const [hoveredDate, setHoveredDate] = useState(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  
+  // Carousel state
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const timerRef = useRef(null);
+  
+  // Images for the carousel - memoized to prevent recreation
+const images = useRef([
+  {
+    type: 'image',
+    url: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80"
+  },
+  {
+    type: 'video',
+    url: "public/video/first.mp4" // Replace with your actual hosted video
+  },
+  {
+    type: 'image',
+    url: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+  },
+  {
+    type: 'image',
+    url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+  }
+]).current;
+
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -30,21 +130,65 @@ export function Home() {
 
     fetchEvents();
   }, []);
+  
+  // Carousel navigation functions
+  const nextSlide = () => {
+    setCurrentIndex(prev => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  const prevSlide = () => {
+    setCurrentIndex(prev => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  // Reset timer when slide changes manually
+  const goToSlide = (index) => {
+    setCurrentIndex(index);
+    resetTimer();
+  };
+
+  // Timer functions
+  const resetTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      if (isAutoPlaying) {
+        timerRef.current = setInterval(nextSlide, 2000);
+      }
+    }
+  };
+
+  // Auto-play functionality with cleanup
+  useEffect(() => {
+    if (isAutoPlaying) {
+      timerRef.current = setInterval(nextSlide, 2000);
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isAutoPlaying]);
+
+  // Event handlers for mouse interaction
+  const pauseAutoplay = () => setIsAutoPlaying(false);
+  const resumeAutoplay = () => setIsAutoPlaying(true);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  const getDaysInMonth = (date: Date) => {
+  const getDaysInMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   };
 
-  const getFirstDayOfMonth = (date: Date) => {
+  const getFirstDayOfMonth = (date) => {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
-  const getEventsForDate = (date: Date) => {
+  const getEventsForDate = (date) => {
     return events.filter(event => {
       const eventDate = new Date(event.date);
       return eventDate.getDate() === date.getDate() &&
@@ -53,7 +197,7 @@ export function Home() {
     });
   };
 
-  const formatTime = (time: string) => {
+  const formatTime = (time) => {
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -61,7 +205,7 @@ export function Home() {
     return `${formattedHour}:${minutes} ${ampm}`;
   };
 
-  const handleDayMouseEnter = (date: Date, e: React.MouseEvent) => {
+  const handleDayMouseEnter = (date, e) => {
     setHoveredDate(date);
     setMousePosition({ x: e.clientX, y: e.clientY });
   };
@@ -123,38 +267,58 @@ export function Home() {
     return days;
   };
 
-  const changeMonth = (increment: number) => {
+  const changeMonth = (increment) => {
     setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + increment, 1));
   };
 
   return (
     <div>
-      {/* Hero Section */}
+      {/* Hero Section - Updated with fixed 500px height */}
       <div className="relative bg-[#f14621] pt-16">
-        <div className="absolute inset-0">
-          <img
-            className="w-full h-full object-cover"
-            src="https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80"
-            alt="Students at college event"
-          />
-          <div className="absolute inset-0 bg-[#f14621] mix-blend-multiply"></div>
-        </div>
-        <div className="relative max-w-7xl mx-auto py-16 sm:py-24 px-4 sm:py-32 sm:px-6 lg:px-8">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white md:text-5xl lg:text-6xl">
-            Manage, Join & Experience College Events at Vidyalankar
-          </h1>
-          <p className="mt-6 text-lg text-white max-w-3xl">
-            Your comprehensive platform for discovering, organizing, and participating in college events.
-            Join the community and never miss out on what's happening on campus.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-            <button className="bg-white text-[#f14621] px-8 py-3 rounded-xl font-medium hover:bg-[#eccec7] transition-colors">
-              Get Started
-            </button>
-            <button className="border-2 border-white text-white px-8 py-3 rounded-xl font-medium hover:bg-white hover:text-[#f14621] transition-colors">
-              Learn More
-            </button>
+        <div 
+          className="relative h-[500px] w-full overflow-hidden"
+          onMouseEnter={pauseAutoplay}
+          onMouseLeave={resumeAutoplay}
+        >
+          {/* Image slider */}
+          <div className="relative h-full w-full">
+            {images.map((img, index) => (
+              <CarouselSlide 
+                key={index}
+                image={img}
+                isActive={index === currentIndex}
+                index={index}
+              />
+            ))}
+            
+            {/* <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white">
+                  Manage, Join & Experience College Events at Vidyalankar
+                </h1>
+                <p className="mt-4 sm:mt-6 text-sm sm:text-base md:text-lg text-white max-w-3xl">
+                  Your comprehensive platform for discovering, organizing, and participating in college events.
+                  Join the community and never miss out on what's happening on campus.
+                </p>
+                <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center sm:justify-start">
+                  <button className="bg-white text-[#f14621] px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-xl font-medium hover:bg-[#eccec7] transition-colors text-sm sm:text-base">
+                    Get Started
+                  </button>
+                  <button className="border-2 border-white text-white px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-xl font-medium hover:bg-white hover:text-[#f14621] transition-colors text-sm sm:text-base">
+                    Learn More
+                  </button>
+                </div>
+              </div>
+            </div> */}
           </div>
+          
+          <CarouselControls
+            currentIndex={currentIndex}
+            totalSlides={images.length}
+            onPrev={prevSlide}
+            onNext={nextSlide}
+            onDotClick={goToSlide}
+          />
         </div>
       </div>
 
