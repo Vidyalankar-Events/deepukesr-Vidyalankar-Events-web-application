@@ -57,7 +57,7 @@ const CarouselControls = memo(({
 
 const CarouselSlide = memo(({ image, isActive, index }) => (
   <div
-    className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+    className={`absolute inset-0  transition-opacity duration-1000 ease-in-out ${
       isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
     }`}
     aria-hidden={!isActive}
@@ -81,7 +81,7 @@ const CarouselSlide = memo(({ image, isActive, index }) => (
         Your browser does not support the video tag.
       </video>
     )}
-    <div className="absolute inset-0  mix-blend-multiply"></div>
+    <div className="absolute inset-0  bg-[#f14621] mix-blend-multiply"></div>
   </div>
 ));
 
@@ -111,11 +111,11 @@ const images = useRef([
   },
   {
     type: 'image',
-    url: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+    url: "https://vsit.edu.in/images/Banner%20Slider/1.png"
   },
   {
     type: 'image',
-    url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80"
+    url: "public/video/VSIT-homescreen.png"
   }
 ]).current;
 
@@ -291,7 +291,7 @@ const images = useRef([
               />
             ))}
             
-            {/* <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left">
                 <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-white">
                   Manage, Join & Experience College Events at Vidyalankar
@@ -309,7 +309,7 @@ const images = useRef([
                   </button>
                 </div>
               </div>
-            </div> */}
+            </div>
           </div>
           
           <CarouselControls
