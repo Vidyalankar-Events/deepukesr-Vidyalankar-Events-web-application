@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  .hero-gradient {
+    @apply relative;
+  }
+  
+  .hero-gradient::before {
+    @apply content-[''] absolute inset-0;
+    @apply bg-[#f14621] mix-blend-multiply opacity-90;
+  }
+  
+  .hero-gradient img {
+    @apply w-full h-full object-cover;
+  }
+}
+
+.page-header {
+  @apply relative bg-[#f14621] py-16;
+}
+
+.page-header::before {
+  content: '';
+  @apply absolute inset-0 bg-[#f14621] mix-blend-multiply opacity-90;
+}
+
+.page-header img {
+  @apply absolute inset-0 w-full h-full object-cover;
+}
+
+.page-header > * {
+  @apply relative;
+}
